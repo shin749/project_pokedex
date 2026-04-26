@@ -5,7 +5,7 @@ import requests
 # streamlit run pokedex.py
 
 # 1. Setting Halaman
-st.set_page_config(page_title="Pokedex by Irza aka Kenshin", layout="wide")
+st.set_page_config(page_title="Pokedex by Irza a.k.a. Kenshin", layout="wide")
 
 # CSS Custom
 st.markdown("""
@@ -152,24 +152,24 @@ display_items = all_results[offset : offset + limit]
 st.write(f"### {title_text}")
 
 if not display_items:
-    # Jika nyangkut di page tinggi tapi hasil cari dikit, tampilkan pesan ramah
-    st.warning("Tidak ada data di halaman ini. Coba kembali ke halaman sebelumnya.")
+    st.warning("Tidak ada data di halaman ini.")
 else:
-    cols = st.columns(3)
-    for idx, item in enumerate(display_items):
-        p = get_pokemon(item)
-        if p:
-            with cols[idx % 3]:
-                st.markdown(f"""
-                    <div class="pokemon-card">
-                        <img src="{p['sprites']['other']['official-artwork']['front_default']}" width="180">
-                        <p class="pokemon-id">#{p['id']:03}</p>
-                        <div class="pokemon-name">{p['name'].capitalize()}</div>
-                    </div>
-                """, unsafe_allow_html=True)
-                if st.button(f"Lihat Detail {p['name'].capitalize()}", key=f"btn_{p['id']}_{idx}", use_container_width=True):
-                    show_details(p)
-
+    # Bungkus bagian ini dengan spinner
+    with st.spinner('Sedang memanggil Pokemon...'):
+        cols = st.columns(3)
+        for idx, item in enumerate(display_items):
+            p = get_pokemon(item)
+            if p:
+                with cols[idx % 3]:
+                    st.markdown(f"""
+                        <div class="pokemon-card">
+                            <img src="{p['sprites']['other']['official-artwork']['front_default']}" width="180">
+                            <p class="pokemon-id">#{p['id']:03}</p>
+                            <div class="pokemon-name">{p['name'].capitalize()}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    if st.button(f"Lihat Detail {p['name'].capitalize()}", key=f"btn_{p['id']}_{idx}", use_container_width=True):
+                        show_details(p)
 # --- NAVIGASI HALAMAN ---
 st.write("---")
 c1, c2, c3 = st.columns([1, 2, 1])
