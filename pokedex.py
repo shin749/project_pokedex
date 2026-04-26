@@ -102,19 +102,21 @@ def get_evolution_chain(pokemon_id):
         res_evo = requests.get(evo_url)
         
         if res_evo.status_code == 200:
-            current = res_evo.json()['chain']
-            while current:
-                name = current['species']['name']
-                # Ambil detail untuk dapat gambar
+            chain = res_evo.json()['chain']
+            
+            # Fungsi bantuan buat bongkar semua cabang
+            def extract_all(evo_node):
+                name = evo_node['species']['name']
                 detail = get_pokemon(name)
                 if detail:
                     img = detail['sprites']['other']['official-artwork']['front_default']
                     evo_data.append({"name": name.capitalize(), "image": img})
                 
-                if current['evolves_to']:
-                    current = current['evolves_to'][0]
-                else:
-                    current = None
+                # Cek semua cabang evolusi (bukan cuma yang pertama)
+                for next_evo in evo_node['evolves_to']:
+                    extract_all(next_evo)
+
+            extract_all(chain)
     return evo_data
 
 # --- FUNGSI LAYER DETAIL (POP-UP) ---
@@ -159,20 +161,18 @@ def show_details(data):
         evolutions = get_evolution_chain(data['id'])
         
         if evolutions:
-            cols_evo = st.columns(len(evolutions))
-            for i, evo in enumerate(evolutions):
-                with cols_evo[i]:
-                    st.image(evo['image'], use_container_width=True)
-                    
-                    # Ganti logika tombolnya jadi begini:
-                    if st.button(f"{evo['name']}", key=f"evo_btn_{evo['name']}_{i}", use_container_width=True):
-                        # 1. Ambil data baru
-                        new_data = get_pokemon(evo['name'].lower())
-                        if new_data:
-                            # 2. Simpan ke session state biar bisa dipanggil ulang
-                            st.session_state.selected_pokemon = new_data
-                            # 3. Paksa aplikasi buat refresh
-                            st.rerun()
+            # Gunakan grid 3 kolom per baris biar nggak kekecilan
+            rows = [evolutions[i:i + 3] for i in range(0, len(evolutions), 3)]
+            for row in rows:
+                cols_evo = st.columns(3)
+                for i, evo in enumerate(row):
+                    with cols_evo[i]:
+                        st.image(evo['image'], use_container_width=True)
+                        if st.button(f"{evo['name']}", key=f"evo_btn_{evo['name']}_{i}", use_container_width=True):
+                            new_data = get_pokemon(evo['name'].lower())
+                            if new_data:
+                                st.session_state.selected_pokemon = new_data
+                                st.rerun()
         else:
             st.write("Tidak memiliki evolusi.")
 
