@@ -35,6 +35,23 @@ st.markdown("""
         text-align: center;
         border-bottom: 4px solid #ff4b4b;
     }
+    [data-testid="stImage"] img {
+        transition: transform 0.3s;
+    }
+    [data-testid="stImage"] img:hover {
+        transform: scale(1.1);
+    }
+    /* Efek biar tombol evolusi kelihatan interaktif */
+.stButton button {
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.stButton button:hover {
+    background-color: #30a7d7 !important;
+    color: white !important;
+    transform: translateY(-3px);
+}
     </style>
     """, unsafe_allow_html=True)
 
@@ -74,6 +91,32 @@ def get_pokemon_description(pokemon_id):
                 return entry['flavor_text'].replace('\n', ' ').replace('\f', ' ')
     return "Deskripsi tidak tersedia."
 
+@st.cache_data
+def get_evolution_chain(pokemon_id):
+    species_url = f"https://pokeapi.co/api/v2/pokemon-species/{pokemon_id}/"
+    res = requests.get(species_url)
+    evo_data = []
+    
+    if res.status_code == 200:
+        evo_url = res.json()['evolution_chain']['url']
+        res_evo = requests.get(evo_url)
+        
+        if res_evo.status_code == 200:
+            current = res_evo.json()['chain']
+            while current:
+                name = current['species']['name']
+                # Ambil detail untuk dapat gambar
+                detail = get_pokemon(name)
+                if detail:
+                    img = detail['sprites']['other']['official-artwork']['front_default']
+                    evo_data.append({"name": name.capitalize(), "image": img})
+                
+                if current['evolves_to']:
+                    current = current['evolves_to'][0]
+                else:
+                    current = None
+    return evo_data
+
 # --- FUNGSI LAYER DETAIL (POP-UP) ---
 @st.dialog("Pokemon Detail", width="large")
 def show_details(data):
@@ -109,6 +152,29 @@ def show_details(data):
         for s in data['stats']:
             st.write(f"{s['stat']['name'].replace('-', ' ').upper()}: {s['base_stat']}")
             st.progress(min(s['base_stat']/150, 1.0))
+            
+            # --- BAGIAN EVOLUSI DENGAN GAMBAR ---
+        st.write("---")
+        st.subheader("Evolution Chain")
+        evolutions = get_evolution_chain(data['id'])
+        
+        if evolutions:
+            cols_evo = st.columns(len(evolutions))
+            for i, evo in enumerate(evolutions):
+                with cols_evo[i]:
+                    st.image(evo['image'], use_container_width=True)
+                    
+                    # Ganti logika tombolnya jadi begini:
+                    if st.button(f"{evo['name']}", key=f"evo_btn_{evo['name']}_{i}", use_container_width=True):
+                        # 1. Ambil data baru
+                        new_data = get_pokemon(evo['name'].lower())
+                        if new_data:
+                            # 2. Simpan ke session state biar bisa dipanggil ulang
+                            st.session_state.selected_pokemon = new_data
+                            # 3. Paksa aplikasi buat refresh
+                            st.rerun()
+        else:
+            st.write("Tidak memiliki evolusi.")
 
 # --- HEADER ---
 st.markdown('<div class="header-pokedex"><h1>🔴 Pokédex</h1></div>', unsafe_allow_html=True)
@@ -185,3 +251,11 @@ with c3:
         if st.button("Selanjutnya ➡️", use_container_width=True):
             st.session_state.current_page += 1
             st.rerun()
+            
+# Cek apakah ada pokemon yang baru saja diklik dari evolusi
+if 'selected_pokemon' in st.session_state and st.session_state.selected_pokemon:
+    pokemon_to_show = st.session_state.selected_pokemon
+    # Hapus dari memori biar nggak muncul terus tiap refresh
+    st.session_state.selected_pokemon = None 
+    # Tampilkan detailnya
+    show_details(pokemon_to_show)
